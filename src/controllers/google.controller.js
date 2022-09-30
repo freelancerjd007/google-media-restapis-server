@@ -1,6 +1,12 @@
 const { google } = require("googleapis");
 const fetch = require("node-fetch");
-const { localStorage } = require("../utils");
+const {
+  localStorage,
+  tokenExpired,
+  createNewToken,
+  getLocalStorageItems,
+  newExpirationDate,
+} = require("../utils");
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -45,8 +51,9 @@ exports.handleGoogleRedirect = async (req, res) => {
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
     localStorage.setItem("accessToken", accessToken);
+    localStorage.setItem("expirationDate", newExpirationDate());
     localStorage.setItem("refreshToken", refreshToken);
-    res.redirect(`${process.env.CLIENT_BASE_URL}/access-token/${accessToken}`);
+    res.redirect(process.env.CLIENT_BASE_URL);
   });
 };
 
@@ -66,6 +73,7 @@ exports.getValidToken = async (req, res) => {
     });
     const data = await request.json();
     localStorage.setItem("accessToken", data.access_token);
+    localStorage.setItem("expirationDate", newExpirationDate());
     res.status(200).json({
       status: "1",
       message: "accessToken generated successfully.",
@@ -78,6 +86,34 @@ exports.getValidToken = async (req, res) => {
         "Something went wrong! accessToken not generated. please try after sometime.",
       errorMsg: error.message,
       accessToken: "",
+    });
+  }
+};
+
+exports.getMediaItems = async (req, res) => {
+  try {
+    if (tokenExpired()) {
+      await createNewToken();
+    }
+    let response = await fetch(
+      `${process.env.REACT_APP_GOOGLE_PHOTOS_REST_API_BASE_URL}/v1/mediaItems`,
+      {
+        headers: {
+          Authorization: `Bearer ${getLocalStorageItems().accessToken}`,
+        },
+      }
+    );
+    response = await response.json();
+    res.status(200).json({
+      status: "1",
+      message: "Google Photos fetched successfully",
+      data: response?.mediaItems || [],
+    });
+  } catch (error) {
+    res.status(422).json({
+      status: "0",
+      message: error.message,
+      data: [],
     });
   }
 };

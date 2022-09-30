@@ -7,4 +7,6 @@ router.get("/handleGoogleRedirect", controller.handleGoogleRedirect);
 
 router.post("/getValidToken", controller.getValidToken);
 
+router.get("/getMediaItems", controller.getMediaItems);
+
 module.exports = router;
